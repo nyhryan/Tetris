@@ -1,0 +1,5 @@
+.vs/*
+OBJ_x64_Debug/*
+OBJ_x64_Release/*
+x64_Debug/*
+x64_Release/*
