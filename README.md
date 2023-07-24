@@ -1,5 +1,4 @@
-# Tetris
-SDL2 Tetris 🕹
+# Tetris-SDL2
 
 Simple tetris project with SDL2 & C++.
 I followed this video tutorial. [🎞 [Creating Tetris in C++ with raylib - Beginner Tutorial (OOP)]](https://youtu.be/wVYKG_ch4yM)
