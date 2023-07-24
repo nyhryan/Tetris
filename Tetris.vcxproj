@@ -73,22 +73,22 @@
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <LibraryPath>H:\Dev\SDL\SDL2_ttf-2.20.2\lib\$(PlatformTarget);H:\Dev\SDL\SDL2_image-2.6.3\lib\$(PlatformTarget);H:\Dev\SDL\SDL2-2.26.5\lib\$(PlatformTarget);$(LibraryPath)</LibraryPath>
     <OutDir>$(SolutionDir)$(PlatformTarget)_$(Configuration)\</OutDir>
-    <IntDir>$(SolutionDir)OBJ_$(PlatformTarget)_$(Configuration)</IntDir>
+    <IntDir>$(SolutionDir)OBJ_$(PlatformTarget)_$(Configuration)\</IntDir>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <LibraryPath>H:\Dev\SDL\SDL2_ttf-2.20.2\lib\$(PlatformTarget);H:\Dev\SDL\SDL2_image-2.6.3\lib\$(PlatformTarget);H:\Dev\SDL\SDL2-2.26.5\lib\$(PlatformTarget);$(LibraryPath)</LibraryPath>
     <OutDir>$(SolutionDir)$(PlatformTarget)_$(Configuration)\</OutDir>
-    <IntDir>$(SolutionDir)OBJ_$(PlatformTarget)_$(Configuration)</IntDir>
+    <IntDir>$(SolutionDir)OBJ_$(PlatformTarget)_$(Configuration)\</IntDir>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <LibraryPath>H:\Dev\SDL\SDL2_ttf-2.20.2\lib\$(PlatformTarget);H:\Dev\SDL\SDL2_image-2.6.3\lib\$(PlatformTarget);H:\Dev\SDL\SDL2-2.26.5\lib\$(PlatformTarget);$(LibraryPath)</LibraryPath>
     <OutDir>$(SolutionDir)$(PlatformTarget)_$(Configuration)\</OutDir>
-    <IntDir>$(SolutionDir)OBJ_$(PlatformTarget)_$(Configuration)</IntDir>
+    <IntDir>$(SolutionDir)OBJ_$(PlatformTarget)_$(Configuration)\</IntDir>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <LibraryPath>H:\Dev\SDL\SDL2_ttf-2.20.2\lib\$(PlatformTarget);H:\Dev\SDL\SDL2_image-2.6.3\lib\$(PlatformTarget);H:\Dev\SDL\SDL2-2.26.5\lib\$(PlatformTarget);$(LibraryPath)</LibraryPath>
     <OutDir>$(SolutionDir)$(PlatformTarget)_$(Configuration)\</OutDir>
-    <IntDir>$(SolutionDir)OBJ_$(PlatformTarget)_$(Configuration)</IntDir>
+    <IntDir>$(SolutionDir)OBJ_$(PlatformTarget)_$(Configuration)\</IntDir>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>

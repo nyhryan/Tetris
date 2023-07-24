@@ -1,10 +1,24 @@
 #pragma once
 #include <cstdint>
-#include <SDL.h>
+//#include <SDL.h>
 #include <SDL_ttf.h>
 
 #include <string>
 #include "Block.h"
+
+struct GameInput
+{
+    bool mIsUpPressed = false;
+    
+    bool mIsDownPressed = false;
+    bool mIsDownReleased = false;
+
+    bool mIsLeftPressed = false;
+    bool mIsRightPressed = false;
+
+    bool mIsCWReleased = false;
+    bool mIsCCWReleased = false;
+};
 
 class Game
 {
@@ -26,6 +40,8 @@ private:
     void GenerateOutput();
 
 private:
+    void InitTetris();
+    void UpdateScore();
     struct TextTexture GetTextureFromText(std::string text);
     void DrawTextTexture(struct TextTexture& tex, int offX, int offY);
 
@@ -46,54 +62,48 @@ private:
     bool CanBlockFit(class Block& block);
 
 private:
-    SDL_Window* mWindow;
-    int mWindowWidth;
-    int mWindowHeight;
+    struct SDL_Window* mWindow = nullptr;
+    int mWindowWidth = 0;
+    int mWindowHeight = 0;
 
-    SDL_Renderer* mRenderer;
+    struct SDL_Renderer* mRenderer = nullptr;
 
-    TTF_Font* mFont;
-    SDL_Texture* mBlocksTexture;
+    TTF_Font* mFont = nullptr;
+    struct SDL_Texture* mBlocksTexture = nullptr;
 
-    bool mIsRunning;
-    bool mIsGameOver;
-    uint32_t mTicks;
-    float mDeltaTime;
+    bool mIsRunning = false;
+    bool mIsGameOver = false;
+    uint32_t mTicks = 0;
+    float mDeltaTime = 0.0f;
 
-    class Grid* mGrid;
+    class Grid* mGrid = nullptr;
 
-    std::vector<class Block> mBlocks;
-    class Block mCurrentBlock;
-    class Block mNextBlock;
+    std::vector<class Block> mBlocks = GetAllBlocks();
+    class Block mCurrentBlock = GetRandomBlock();
+    class Block mNextBlock = GetRandomBlock();
 
-    bool mReadyToPlay;
+    bool mIsBlockLockable = false;
+    float mBlockLockTimer = 0.0f;
 
-    bool mIsUpPressed;
-    bool mIsDownPressed;
-    bool mIsLeftPressed;
-    bool mIsRightPressed;
-    bool mIsCWReleased;
-    bool mIsCCWReleased;
+    bool mReadyToPlay = false;
 
-    bool mIsDownReleased;
+    GameInput mInput;
 
-    bool mIsRowCleared;
-    float mClearedRowTimer;
 
-    float mFallingTimer;
-    float mFallingSpeed; // smaller the faster
+    bool mIsRowCleared = false;
+    float mClearedRowTimer = 0.0f;
+
+    float mFallingTimer = 0.0f;
+    float mFallingSpeed = 0; // smaller the faster
 
     bool mShouldIncreaseLevel = false;
 
 
-    int mTotalLinesRemoved;
-    int mCurrentLinesRemoved;
-    int mPrevScore;
-    int mScore;
-    SDL_Texture* mScoreText;
+    int mTotalLinesRemoved = 0;
+    int mCurrentLinesRemoved = 0;
+    int mPrevScore = 0;
+    int mScore = 0;
+    struct SDL_Texture* mScoreText = nullptr;
 
-    bool mIsLockable = false;
-    float mLockTimer = 0.0f;
-    float count = 0.0f;
     int mLevel = 1;
 };

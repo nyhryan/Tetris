@@ -21,36 +21,6 @@
 #include "TBlock.h"  // block index 7
 
 Game::Game()
-    : mWindow(nullptr),
-      mWindowWidth(0),
-      mWindowHeight(0),
-      mRenderer(nullptr),
-      mFont(nullptr),
-      mBlocksTexture(nullptr),
-      mIsRunning(false),
-      mIsGameOver(false),
-      mTicks(0),
-      mDeltaTime(0.0f),
-      mGrid(nullptr),
-      mBlocks(GetAllBlocks()),
-      mCurrentBlock(GetRandomBlock()),
-      mNextBlock(GetRandomBlock()),
-      mReadyToPlay(false),
-      mIsUpPressed(false),
-      mIsDownPressed(false),
-      mIsLeftPressed(false),
-      mIsRightPressed(false),
-      mIsCWReleased(false),
-      mIsCCWReleased(false),
-      mIsRowCleared(false),
-      mClearedRowTimer(0.0f),
-      mFallingTimer(0.0f),
-      mFallingSpeed(0.0f),
-      mTotalLinesRemoved(0),
-      mCurrentLinesRemoved(0),
-      mPrevScore(0),
-      mScore(0),
-      mScoreText(nullptr)
 {
 }
 
@@ -162,10 +132,7 @@ void Game::Shutdown()
 void Game::LoadData()
 {
     mGrid = new Grid();
-    mPrevScore = mScore = 0;
-    mCurrentLinesRemoved = mTotalLinesRemoved = 0;
-    mIsGameOver = false;
-    mFallingSpeed = 50.0f;
+    InitTetris();
 }
 
 void Game::UnloadData()
@@ -175,12 +142,11 @@ void Game::UnloadData()
 
 void Game::ProcessInput()
 {
-    mIsDownPressed = false;
-    mIsDownReleased = false;
-    mIsUpPressed = false;
-
-
+    // mIsDownPressed = false;
+    // mIsDownReleased = false;
+    // mIsUpPressed = false;
     SDL_Event event;
+    GameInput input;
     while (SDL_PollEvent(&event))
     {
         auto keyCode = event.key.keysym.sym;
@@ -193,29 +159,27 @@ void Game::ProcessInput()
         if (event.type == SDL_KEYDOWN && mReadyToPlay)
         {
             if (keyCode == SDLK_LEFT)
-                mIsLeftPressed = true;
-            // MoveCurrentBlockLeft();
+                input.mIsLeftPressed = true;
             if (keyCode == SDLK_RIGHT)
-                mIsRightPressed = true;
-            // MoveCurrentBlockRight();
+                input.mIsRightPressed = true;
             if (keyCode == SDLK_UP)
-                mIsUpPressed = true;
+                input.mIsUpPressed = true;
             if (keyCode == SDLK_DOWN)
-                mIsDownPressed = true;
+                input.mIsDownPressed = true;
         }
         if (event.type == SDL_KEYUP && mReadyToPlay)
         {
             if (keyCode == SDLK_DOWN)
-                mIsDownReleased = true;
+                input.mIsDownReleased = true;
             if (keyCode == SDLK_x)
-                mIsCWReleased = true;
+                input.mIsCWReleased = true;
             if (keyCode == SDLK_z)
-                mIsCCWReleased = true;
+                input.mIsCCWReleased = true;
         }
     }
-}
 
-Uint32 tempTicks = 0;
+    mInput = input;
+}
 
 void Game::UpdateGame()
 {
@@ -238,54 +202,64 @@ void Game::UpdateGame()
         // press down to fall faster
         mFallingTimer += mDeltaTime;
 
-        if (mIsDownPressed && !mIsDownReleased)
+        if (mInput.mIsDownPressed && !mInput.mIsDownReleased)
         {
             auto fasterSpeed = 10.0f;
             std::swap(mFallingSpeed, fasterSpeed);
             MoveCurrentBlockDown();
             std::swap(mFallingSpeed, fasterSpeed);
         }
-        else if (mFallingTimer > mDeltaTime * mFallingSpeed)  // or automatically move down if time has passed enough
+        // or automatically move down if time has passed enough
+        // : falls down every mFallingSpeed frames
+        else if (mFallingTimer > mDeltaTime * mFallingSpeed && !mInput.mIsDownPressed)
         {
             MoveCurrentBlockDown();
             mFallingTimer = 0.0f;
         }
 
+        // if the block is ready to be lock to the grid, waits 10 frames before lock
+        if (mIsBlockLockable && !mInput.mIsDownPressed)
+        {
+            mBlockLockTimer += mDeltaTime;
+
+            if (mBlockLockTimer > mDeltaTime * 10.0f)
+            {
+                LockBlock();
+                mBlockLockTimer = 0.0f;
+                mIsBlockLockable = false;
+                mFallingTimer = 0.0f;
+            }
+        }
+
         // press up to hard drop
-        if (mIsUpPressed)
+        if (mInput.mIsUpPressed)
         {
             while (!IsBlockOutside(mCurrentBlock) && CanBlockFit(mCurrentBlock))
                 mCurrentBlock.Move(1, 0);
 
             mCurrentBlock.Move(-1, 0);
             LockBlock();
-            mIsUpPressed = false;
         }
 
-        if (mIsLeftPressed)
+        if (mInput.mIsLeftPressed)
         {
             MoveCurrentBlockLeft();
-            mIsLeftPressed = false;
         }
 
-        if (mIsRightPressed)
+        if (mInput.mIsRightPressed)
         {
             MoveCurrentBlockRight();
-            mIsRightPressed = false;
         }
 
-        if (mIsCWReleased)
+        if (mInput.mIsCWReleased)
         {
             RotateBlockCW();
-            mIsCWReleased = false;
         }
 
-        if (mIsCCWReleased)
+        if (mInput.mIsCCWReleased)
         {
             RotateBlockCCW();
-            mIsCCWReleased = false;
         }
-
 
         // do disappearing animation during this timer
         if (mIsRowCleared)
@@ -309,7 +283,7 @@ void Game::GenerateOutput()
     // ================================================================
 
     // write score on the right
-    int scoreCounter = mPrevScore;
+    int& scoreCounter = mPrevScore;
     if (scoreCounter < mScore)
     {
         auto scoreDiff = mScore - mPrevScore;
@@ -422,6 +396,37 @@ void Game::GenerateOutput()
     SDL_RenderPresent(mRenderer);
 }
 
+void Game::InitTetris()
+{
+    mPrevScore = mScore = 0;
+    mCurrentLinesRemoved = mTotalLinesRemoved = 0;
+    mIsGameOver = false;
+    mFallingSpeed = 50.0f;
+}
+
+void Game::UpdateScore()
+{
+    mIsRowCleared = true;
+    mPrevScore = mScore;
+    if (mCurrentLinesRemoved == 1)
+        mScore += 40;
+    else if (mCurrentLinesRemoved == 2)
+        mScore += 100;
+    else if (mCurrentLinesRemoved == 3)
+        mScore += 300;
+    else
+        mScore += 1200;
+
+    // gets faster every 2 lines
+    if (mTotalLinesRemoved > 0 && mTotalLinesRemoved % 2 == 0)
+    {
+        mFallingSpeed -= 2.0f;
+        if (mFallingSpeed < 4.0f)
+            mFallingSpeed = 4.0f;
+        mLevel++;
+    }
+}
+
 TextTexture Game::GetTextureFromText(std::string text)
 {
     SDL_Color White = { 255, 255, 255 };
@@ -502,27 +507,7 @@ void Game::LockBlock()
     mTotalLinesRemoved += mCurrentLinesRemoved;
     // if lines are removed
     if (mCurrentLinesRemoved != 0)
-    {
-        mIsRowCleared = true;
-        mPrevScore = mScore;
-        if (mCurrentLinesRemoved == 1)
-            mScore += 40;
-        else if (mCurrentLinesRemoved == 2)
-            mScore += 100;
-        else if (mCurrentLinesRemoved == 3)
-            mScore += 300;
-        else
-            mScore += 1200;
-
-        // gets faster every 2 lines
-        if (mTotalLinesRemoved > 0 && mTotalLinesRemoved % 2 == 0)
-        {
-            mFallingSpeed -= 2.0f;
-            if (mFallingSpeed < 4.0f)
-                mFallingSpeed = 4.0f;
-            mLevel++;
-        }
-    }
+        UpdateScore();
     else
         mIsRowCleared = false;
 }
@@ -552,27 +537,25 @@ void Game::MoveCurrentBlockRight()
         mCurrentBlock.Move(0, -1);
 }
 
+
 void Game::MoveCurrentBlockDown()
 {
     mCurrentBlock.Move(1, 0);
 
     if (IsBlockOutside(mCurrentBlock) || !CanBlockFit(mCurrentBlock))
     {
-        if (!mIsLockable)
-        {
-            count = mLockTimer / mDeltaTime;
-            mIsLockable = true;
-        }
         mCurrentBlock.Move(-1, 0);
-    }
+        mIsBlockLockable = true;
+        // timer += mDeltaTime * mFallingSpeed;
 
-    mLockTimer += mDeltaTime;
+        // SDL_Log("%lf", timer);
 
-    if (mIsLockable && mLockTimer / mDeltaTime > count + 2.0f)
-    {
-        LockBlock();
-        mIsLockable = false;
-        mLockTimer = 0.0f;
+        // if (timer > mDeltaTime * 5.0f)
+        //{
+        //     SDL_Log("timer : %lf", timer);
+        //     LockBlock();
+        //     timer = 0.0f;
+        // }
     }
 }
 

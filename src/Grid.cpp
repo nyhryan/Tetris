@@ -129,22 +129,6 @@ int Grid::ClearFullRows()
             col = 8;
     }
 
-    // if (!mClearedRows.empty())
-    //{
-    //     for (auto& row: mGridSnapshot)
-    //     {
-    //         for (auto& col : row)
-    //        {
-    //            if (col == 0)
-    //                std::cout << "  ";
-    //            else
-    //                std::cout << col << ' ';
-    //         }
-    //         std::cout << '\n';
-    //     }
-    //     std::cout << "----------------\n";
-    // }
-
     return clear;
 }
 
