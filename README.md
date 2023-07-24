@@ -10,6 +10,7 @@ I followed this video tutorial. [🎞 [Creating Tetris in C++ with raylib - Begi
 - Scoring system follows [Original BPS scoring system](https://tetris.wiki/Scoring#Recent_guideline_compatible_games).
 
 ## Build
+Need to configure `SDL2`, `SDL2 image`, `SDL2 ttf` directory in the VS project.
 After building the project with VS, `/Assets` and SDL `.dll` files needs to be in a same directory where `.exe` file sits.
 
 ## Keys
