@@ -29,3 +29,6 @@ After building the project with VS, `/Assets` and SDL `.dll` files needs to be i
 - Bugs that I might not have noticed
 - It is quite difficult to calculate anything related to frames and timings, which can be used on combo system, free to move around after placing the tetromino for a while, I need further understanding.
 - Tetrominos will rotate on the RELEASE of `z, x` key, which was done to mitigate blocks rotating in a blazing speed while holding `z, x` keys. Rotating block on the release of the key feels bit weird.
+
+## ETC
+- Font used : [DaFont - Modern DOS](https://www.dafont.com/modern-dos.font)
