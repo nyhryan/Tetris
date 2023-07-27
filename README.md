@@ -24,7 +24,7 @@ After building the project with VS, `/Assets` and SDL `.dll` files needs to be i
 ## TODO
 - Proper Combo system & scoring system
 - Sometimes I-Block will clip out from the playing grid and makes game crash?
-- Original tetris game has a feature that after tetromino has placed on its position, you can move the tetromino for a while. Need this feature.
+- ~~Original tetris game has a feature that after tetromino has placed on its position, you can move the tetromino for a while. Need this feature.~~ Now kinda works I think. waits 10 frames or 30 frames if the block is falling faster.
 - MUSIC 🎶
 - Main menu, pause menu, etc.
 - Bugs that I might not have noticed
