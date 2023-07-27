@@ -9,6 +9,7 @@
 struct GameInput
 {
     bool mIsUpPressed = false;
+    bool mIsUpReleased = false;
     
     bool mIsDownPressed = false;
     bool mIsDownReleased = false;
@@ -18,6 +19,8 @@ struct GameInput
 
     bool mIsCWReleased = false;
     bool mIsCCWReleased = false;
+
+    bool mIsHoldReleased = false;
 };
 
 class Game
@@ -69,10 +72,12 @@ private:
     struct SDL_Renderer* mRenderer = nullptr;
 
     TTF_Font* mFont = nullptr;
+    int mFontSize = 24;
     struct SDL_Texture* mBlocksTexture = nullptr;
 
     bool mIsRunning = false;
     bool mIsGameOver = false;
+    bool mShowResult = false;
     uint32_t mTicks = 0;
     float mDeltaTime = 0.0f;
 
@@ -81,9 +86,13 @@ private:
     std::vector<class Block> mBlocks = GetAllBlocks();
     class Block mCurrentBlock = GetRandomBlock();
     class Block mNextBlock = GetRandomBlock();
-
+    class Block mHoldBlock = NullBlock();
+ 
     bool mIsBlockLockable = false;
     float mBlockLockTimer = 0.0f;
+
+    bool mIsHoldBlockAvail = false;
+    bool mIsBlockHoldTriggered = false;
 
     bool mReadyToPlay = false;
 
@@ -106,4 +115,8 @@ private:
     struct SDL_Texture* mScoreText = nullptr;
 
     int mLevel = 1;
+
+    int mFinalScore = 0;
+    int mFinalLines = 0;
+    int mFinalLevel = 0;
 };

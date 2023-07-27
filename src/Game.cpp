@@ -3,6 +3,7 @@
 #include <random>
 #include <iostream>
 #include <string>
+#include <algorithm>
 #include <SDL.h>
 #include <SDL_image.h>
 #include <SDL_ttf.h>
@@ -82,7 +83,7 @@ bool Game::Init(int wWidth, int wHeight)
         return false;
     }
 
-    mFont = TTF_OpenFont("Assets/Fonts/ModernDOS8x16.ttf", 24);
+    mFont = TTF_OpenFont("Assets/Fonts/ModernDOS8x16.ttf", mFontSize);
     if (!mFont)
     {
         SDL_Log("failed to open font : %s\n", SDL_GetError());
@@ -102,19 +103,11 @@ void Game::RunLoop()
 {
     while (mIsRunning)
     {
-        if (!mIsGameOver)
-        {
-            ProcessInput();
-            UpdateGame();
-            GenerateOutput();
-        }
         // if gameover, reset the game
-        else
-        {
-            UnloadData();
-            LoadData();
-            mIsGameOver = false;
-        }
+
+        ProcessInput();
+        UpdateGame();
+        GenerateOutput();
     }
 }
 
@@ -142,9 +135,6 @@ void Game::UnloadData()
 
 void Game::ProcessInput()
 {
-    // mIsDownPressed = false;
-    // mIsDownReleased = false;
-    // mIsUpPressed = false;
     SDL_Event event;
     GameInput input;
     while (SDL_PollEvent(&event))
@@ -155,32 +145,43 @@ void Game::ProcessInput()
         if (event.type == SDL_KEYDOWN && keyCode == SDLK_ESCAPE)
             mIsRunning = false;
         if (event.type == SDL_KEYUP && keyCode == SDLK_RETURN)
+        {
+            if (mShowResult)
+            {
+                UnloadData();
+                LoadData();
+                mShowResult = false;
+            }
             mReadyToPlay = true;
+        }
         if (event.type == SDL_KEYDOWN && mReadyToPlay)
         {
             if (keyCode == SDLK_LEFT)
                 input.mIsLeftPressed = true;
             if (keyCode == SDLK_RIGHT)
                 input.mIsRightPressed = true;
-            if (keyCode == SDLK_UP)
-                input.mIsUpPressed = true;
             if (keyCode == SDLK_DOWN)
                 input.mIsDownPressed = true;
         }
         if (event.type == SDL_KEYUP && mReadyToPlay)
         {
+            if (keyCode == SDLK_UP)
+                input.mIsUpReleased = true;
             if (keyCode == SDLK_DOWN)
                 input.mIsDownReleased = true;
             if (keyCode == SDLK_x)
                 input.mIsCWReleased = true;
             if (keyCode == SDLK_z)
                 input.mIsCCWReleased = true;
+            if (keyCode == SDLK_c)
+                input.mIsHoldReleased = true;
         }
     }
 
     mInput = input;
 }
 
+int i = 0;
 void Game::UpdateGame()
 {
     // update deltaTime
@@ -197,11 +198,21 @@ void Game::UpdateGame()
     mTicks = SDL_GetTicks();
 
     // ================================================================
+    if (mIsGameOver)
+    {
+        mFinalScore = mScore;
+        mFinalLines = mTotalLinesRemoved;
+        mFinalLevel = mLevel;
+        InitTetris();
+        mIsGameOver = false;
+        mShowResult = true;
+    }
+
     if (mReadyToPlay)
     {
-        // press down to fall faster
         mFallingTimer += mDeltaTime;
 
+        // press down to fall faster
         if (mInput.mIsDownPressed && !mInput.mIsDownReleased)
         {
             auto fasterSpeed = 10.0f;
@@ -221,8 +232,10 @@ void Game::UpdateGame()
         if (mIsBlockLockable && !mInput.mIsDownPressed)
         {
             mBlockLockTimer += mDeltaTime;
+            SDL_Log("%2d - mBlockLockTimer : %lf", i++, mBlockLockTimer);
+            float lockSpeed = (mFallingSpeed <= 20.0f) ? 30.0f : 10.0f;
 
-            if (mBlockLockTimer > mDeltaTime * 10.0f)
+            if (mBlockLockTimer > mDeltaTime * lockSpeed)
             {
                 LockBlock();
                 mBlockLockTimer = 0.0f;
@@ -232,7 +245,7 @@ void Game::UpdateGame()
         }
 
         // press up to hard drop
-        if (mInput.mIsUpPressed)
+        if (mInput.mIsUpReleased)
         {
             while (!IsBlockOutside(mCurrentBlock) && CanBlockFit(mCurrentBlock))
                 mCurrentBlock.Move(1, 0);
@@ -242,23 +255,43 @@ void Game::UpdateGame()
         }
 
         if (mInput.mIsLeftPressed)
-        {
             MoveCurrentBlockLeft();
-        }
 
         if (mInput.mIsRightPressed)
-        {
             MoveCurrentBlockRight();
-        }
 
         if (mInput.mIsCWReleased)
-        {
             RotateBlockCW();
-        }
 
         if (mInput.mIsCCWReleased)
-        {
             RotateBlockCCW();
+
+        // if hold button released
+        if (mInput.mIsHoldReleased)
+        {
+            // if there's already hold block, replace it with current block
+            // but for only once, current turn only
+            if (mIsHoldBlockAvail && !mIsBlockHoldTriggered)
+            {
+                std::swap(mCurrentBlock, mHoldBlock);
+                mHoldBlock.mRowOffset = mHoldBlock.mColumnOffset = 0;
+                mIsBlockHoldTriggered = true;
+            }
+            // for the first time, put current block as new hold block and
+            // pull next block
+            else if (!mIsHoldBlockAvail && !mIsBlockHoldTriggered)
+            {
+                // put current block as hold block
+                mHoldBlock = mCurrentBlock;
+                mHoldBlock.mRowOffset = mHoldBlock.mColumnOffset = 0;
+
+                mCurrentBlock = mNextBlock;
+                mNextBlock = GetRandomBlock();
+                if (mBlocks.empty())
+                    mBlocks = GetAllBlocks();
+                mIsHoldBlockAvail = true;
+                mIsBlockHoldTriggered = true;
+            }
         }
 
         // do disappearing animation during this timer
@@ -282,116 +315,155 @@ void Game::GenerateOutput()
     SDL_RenderClear(mRenderer);
     // ================================================================
 
-    // write score on the right
-    int& scoreCounter = mPrevScore;
-    if (scoreCounter < mScore)
+    if (mShowResult)
     {
-        auto scoreDiff = mScore - mPrevScore;
-        if (scoreDiff <= 40)
-            ++scoreCounter;
-        else if (scoreDiff <= 100)
-            scoreCounter += 5;
-        else if (scoreDiff <= 300)
-            scoreCounter += 10;
-        else if (scoreDiff <= 1200)
-            scoreCounter += 100;
+        int offsetY = (mWindowHeight - 100) / 2;
+        TextTexture score = GetTextureFromText("Score : " + std::to_string(mFinalScore));
+        DrawTextTexture(score, (mWindowWidth - score.texWidth) / 2, offsetY);
+
+        TextTexture lines = GetTextureFromText("Lines : " + std::to_string(mFinalLines));
+        DrawTextTexture(lines, (mWindowWidth - lines.texWidth) / 2, offsetY + 25);
+
+        TextTexture levels = GetTextureFromText("Level : " + std::to_string(mFinalLevel));
+        DrawTextTexture(levels, (mWindowWidth - levels.texWidth) / 2, offsetY + 50);
+
+        TextTexture restart = GetTextureFromText("Press Enter to restart the game");
+        DrawTextTexture(restart, (mWindowWidth - restart.texWidth) / 2, offsetY + 75);
     }
-    // if the counter exceeds current score, make it current score
-    if (scoreCounter >= mScore)
-        scoreCounter = mScore;
-
-    auto calcOffsetX = [this](TextTexture& tex)
-    {
-        int gridWidth = mGrid->mCols * mGrid->mCellSize;
-        return static_cast<int>(gridWidth + (mWindowWidth - gridWidth - tex.texWidth) / 2);
-    };
-
-    TextTexture score = GetTextureFromText("Score - " + std::to_string(scoreCounter));
-    int scoreAreaOffsetX = calcOffsetX(score);
-    const int scoreOffsetY = 50;
-    DrawTextTexture(score, scoreAreaOffsetX, scoreOffsetY);
-
-    TextTexture totalLines = GetTextureFromText("Lines - " + std::to_string(mTotalLinesRemoved));
-    int totalLinesAreaOffsetX = calcOffsetX(totalLines);
-    DrawTextTexture(totalLines, totalLinesAreaOffsetX, scoreOffsetY + score.texHeight + 1);
-
-    TextTexture level = GetTextureFromText("Level - " + std::to_string(mLevel));
-    int levelAreaOffsetX = calcOffsetX(level);
-    DrawTextTexture(level, levelAreaOffsetX, scoreOffsetY + score.texHeight * 2 + 1);
-    // say good, amazing, ... when lines are cleared
-    if (mCurrentLinesRemoved != 0)
-    {
-        std::string complimentText;
-        switch (mCurrentLinesRemoved)
-        {
-            case 2:
-                complimentText = "Great!";
-                break;
-            case 3:
-                complimentText = "Amazing!!";
-                break;
-            case 4:
-                complimentText = "TETRIS!!!";
-                break;
-            default:
-                complimentText = "Good!";
-                break;
-        }
-
-        TextTexture compliment = GetTextureFromText(complimentText);
-        int lineAreaOffsetX = calcOffsetX(compliment);
-        DrawTextTexture(compliment, lineAreaOffsetX, scoreOffsetY + score.texHeight * 3 + 1);
-    }
-
-
-    int gridWidth = mGrid->mCols * mGrid->mCellSize;
-    const int nextBlockBoxWidth = (mWindowWidth - gridWidth) * 2 / 3;
-    const int nextBlockBoxY = 150;
-    int nextBlockAreaOffsetX = static_cast<int>(gridWidth + (mWindowWidth - gridWidth - nextBlockBoxWidth) / 2);
-    SDL_Rect nextBlockSquare{ nextBlockAreaOffsetX, nextBlockBoxY, nextBlockBoxWidth, nextBlockBoxWidth };
-    Color::SetDrawColor(mRenderer, Color::BLACK);
-    SDL_RenderFillRect(mRenderer, &nextBlockSquare);
-
-    mNextBlock.DrawNext(mRenderer, mBlocksTexture, nextBlockAreaOffsetX + (nextBlockBoxWidth - mNextBlock.mCellSize * 3) / 2, nextBlockBoxY + (nextBlockBoxWidth - mNextBlock.mCellSize * 2) / 2);
-
-    // ================================================================
-    // do disappearing animation while mIsRowCleared
-    if (mIsRowCleared)
-        mGrid->DrawRowCleared(mRenderer, mBlocksTexture);
-
-    // ================================================================
-    // or just normally draw everything
     else
     {
-        // draw background grid first
-        mGrid->Draw(mRenderer, mBlocksTexture);
-
-        // then, draw shadow block if available
-        auto shadow = GetShadowBlock();
-        if (!shadow.empty())
+        // write score on the right
+        int& scoreCounter = mPrevScore;
+        if (scoreCounter < mScore)
         {
-            SDL_Rect shadowCell;
-            shadowCell.w = shadowCell.h = mGrid->mCellSize - 2;
-            for (auto& item : shadow)
+            auto scoreDiff = mScore - mPrevScore;
+            if (scoreDiff <= 40)
+                ++scoreCounter;
+            else if (scoreDiff <= 100)
+                scoreCounter += 5;
+            else if (scoreDiff <= 300)
+                scoreCounter += 10;
+            else if (scoreDiff <= 1200)
+                scoreCounter += 100;
+        }
+        // if the counter exceeds current score, make it current score
+        if (scoreCounter >= mScore)
+            scoreCounter = mScore;
+
+        const int scoreOffsetY = 50;
+
+        // draws text on score area, aligned center, but given 'offY' to set Y offset
+        auto drawText = [this](std::string str, int offY)
+        {
+            auto calcOffsetX = [this](TextTexture& tex)
             {
-                shadowCell.x = item.col * mGrid->mCellSize + 2;
-                shadowCell.y = item.row * mGrid->mCellSize + 2;
+                int gridWidth = mGrid->mCols * mGrid->mCellSize;
+                return static_cast<int>(gridWidth + (mWindowWidth - gridWidth - tex.texWidth) / 2);
+            };
 
-                // draw transparent version of current block for the shadow
-                SDL_Rect srcRect{ (mCurrentBlock.mId - 1) % 4 * 32, (mCurrentBlock.mId - 1) / 4 * 32, 32, 32 };
-                SDL_SetTextureBlendMode(mBlocksTexture, SDL_BLENDMODE_BLEND);
-                SDL_SetTextureAlphaMod(mBlocksTexture, 127);
-                SDL_RenderCopy(mRenderer, mBlocksTexture, &srcRect, &shadowCell);
+            TextTexture tex = GetTextureFromText(str);
+            int texOffsetX = calcOffsetX(tex);
+            DrawTextTexture(tex, texOffsetX, offY);
+        };
 
-                SDL_SetTextureAlphaMod(mBlocksTexture, 255);
-                SDL_SetTextureBlendMode(mBlocksTexture, SDL_BLENDMODE_NONE);
+        drawText("Score - " + std::to_string(scoreCounter), scoreOffsetY);
+        drawText("Lines - " + std::to_string(mTotalLinesRemoved), scoreOffsetY + mFontSize + 1);
+        drawText("Level - " + std::to_string(mLevel), scoreOffsetY + mFontSize * 2 + 1);
+
+
+        // say good, amazing, ... when lines are cleared
+        if (mCurrentLinesRemoved != 0)
+        {
+            std::string complimentText;
+            switch (mCurrentLinesRemoved)
+            {
+                case 2:
+                    complimentText = "Great!";
+                    break;
+                case 3:
+                    complimentText = "Amazing!!";
+                    break;
+                case 4:
+                    complimentText = "TETRIS!!!";
+                    break;
+                default:
+                    complimentText = "Good!";
+                    break;
             }
+
+            drawText(complimentText, scoreOffsetY + mFontSize * 3 + 1);
         }
 
-        mCurrentBlock.Draw(mRenderer, mBlocksTexture);
+
+        int gridWidth = mGrid->mCols * mGrid->mCellSize;
+        const int nextBlockBoxWidth = (mWindowWidth - gridWidth) * 2 / 3;
+        const int nextBlockBoxY = 150;
+        int nextBlockAreaOffsetX = static_cast<int>(gridWidth + (mWindowWidth - gridWidth - nextBlockBoxWidth) / 2);
+        SDL_Rect nextBlockSquare{ nextBlockAreaOffsetX, nextBlockBoxY, nextBlockBoxWidth, nextBlockBoxWidth };
+        Color::SetDrawColor(mRenderer, Color::BLACK);
+        SDL_RenderFillRect(mRenderer, &nextBlockSquare);
+        drawText("Next", nextBlockBoxY + nextBlockBoxWidth + 5);
+
+        nextBlockSquare.y += 250;
+        SDL_RenderFillRect(mRenderer, &nextBlockSquare);
+        drawText("Hold", nextBlockSquare.y + nextBlockBoxWidth + 5);
+
+        mNextBlock.DrawNext(
+            mRenderer,
+            mBlocksTexture,
+            nextBlockAreaOffsetX + (nextBlockBoxWidth - mNextBlock.mCellSize * 3) / 2,
+            nextBlockBoxY + (nextBlockBoxWidth - mNextBlock.mCellSize * 2) / 2);
+
+        // draw hold block
+        if (mIsHoldBlockAvail)
+        {
+            mHoldBlock.mRotationState = 0;
+            mHoldBlock.mRowOffset = 0;
+            mHoldBlock.mColumnOffset = 3;
+            mHoldBlock.DrawNext(
+                mRenderer,
+                mBlocksTexture,
+                nextBlockAreaOffsetX + (nextBlockBoxWidth - mHoldBlock.mCellSize * 3) / 2,
+                nextBlockBoxY + 250 + (nextBlockBoxWidth - mHoldBlock.mCellSize * 2) / 2);
+        }
+
+        // ================================================================
+        // do disappearing animation while mIsRowCleared
+        if (mIsRowCleared)
+            mGrid->DrawRowCleared(mRenderer, mBlocksTexture);
+
+        // ================================================================
+        // or just normally draw everything
+        else
+        {
+            // draw background grid first
+            mGrid->Draw(mRenderer, mBlocksTexture);
+
+            // then, draw shadow block if available
+            auto shadow = GetShadowBlock();
+            if (!shadow.empty())
+            {
+                SDL_Rect shadowCell;
+                shadowCell.w = shadowCell.h = mGrid->mCellSize - 2;
+                for (auto& item : shadow)
+                {
+                    shadowCell.x = item.col * mGrid->mCellSize + 2;
+                    shadowCell.y = item.row * mGrid->mCellSize + 2;
+
+                    // draw transparent version of current block for the shadow
+                    SDL_Rect srcRect{ (mCurrentBlock.mId - 1) % 4 * 32, (mCurrentBlock.mId - 1) / 4 * 32, 32, 32 };
+                    SDL_SetTextureBlendMode(mBlocksTexture, SDL_BLENDMODE_BLEND);
+                    SDL_SetTextureAlphaMod(mBlocksTexture, 127);
+                    SDL_RenderCopy(mRenderer, mBlocksTexture, &srcRect, &shadowCell);
+
+                    SDL_SetTextureAlphaMod(mBlocksTexture, 255);
+                    SDL_SetTextureBlendMode(mBlocksTexture, SDL_BLENDMODE_NONE);
+                }
+            }
+
+            mCurrentBlock.Draw(mRenderer, mBlocksTexture);
+        }
     }
-
-
     // ================================================================
     SDL_RenderPresent(mRenderer);
 }
@@ -400,8 +472,25 @@ void Game::InitTetris()
 {
     mPrevScore = mScore = 0;
     mCurrentLinesRemoved = mTotalLinesRemoved = 0;
-    mIsGameOver = false;
-    mFallingSpeed = 50.0f;
+    mLevel = 1;
+    mFallingSpeed = 56.0f;
+
+    mBlocks.clear();
+    mBlocks = GetAllBlocks();
+    mCurrentBlock = GetRandomBlock();
+    mNextBlock = GetRandomBlock();
+    mHoldBlock = NullBlock();
+
+    mIsBlockLockable = false;
+    mIsHoldBlockAvail = false;
+    mIsBlockHoldTriggered = false;
+    mReadyToPlay = false;
+
+    mIsRowCleared = false;
+    mClearedRowTimer = 0.0f;
+    mShouldIncreaseLevel = false;
+
+    mShowResult = true;
 }
 
 void Game::UpdateScore()
@@ -420,10 +509,12 @@ void Game::UpdateScore()
     // gets faster every 2 lines
     if (mTotalLinesRemoved > 0 && mTotalLinesRemoved % 2 == 0)
     {
-        mFallingSpeed -= 2.0f;
-        if (mFallingSpeed < 4.0f)
+        if (mFallingSpeed > 4.0f)
+            mFallingSpeed -= 4.0f;
+        else
             mFallingSpeed = 4.0f;
-        mLevel++;
+        SDL_Log("falling speed : %lf", mFallingSpeed);
+        mLevel++;  // +1 level per 2 lines
     }
 }
 
@@ -510,6 +601,8 @@ void Game::LockBlock()
         UpdateScore();
     else
         mIsRowCleared = false;
+
+    mIsBlockHoldTriggered = false;
 }
 
 std::vector<Position> Game::GetShadowBlock()
@@ -544,18 +637,8 @@ void Game::MoveCurrentBlockDown()
 
     if (IsBlockOutside(mCurrentBlock) || !CanBlockFit(mCurrentBlock))
     {
-        mCurrentBlock.Move(-1, 0);
         mIsBlockLockable = true;
-        // timer += mDeltaTime * mFallingSpeed;
-
-        // SDL_Log("%lf", timer);
-
-        // if (timer > mDeltaTime * 5.0f)
-        //{
-        //     SDL_Log("timer : %lf", timer);
-        //     LockBlock();
-        //     timer = 0.0f;
-        // }
+        mCurrentBlock.Move(-1, 0);
     }
 }
 

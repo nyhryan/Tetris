@@ -38,3 +38,8 @@ protected:
     int mRowOffset;
     int mColumnOffset;
 };
+
+class NullBlock : public Block
+{
+
+};
